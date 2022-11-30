@@ -4,7 +4,6 @@ from datetime import timedelta
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
-import redis
 
 publisher_domain_ids = [1525074, 1525073, 1597725, 1525077]
 publisher_id = 74968
@@ -20,34 +19,24 @@ class DF_COLUMNS:
     SALES_COUNT_TOTAL = "sales_count_total"
 
 
-def _get_table(file_info, redis_connector):
+def _get_table(file_info):
     """
     Get the data
     :param file_info:
-    :param redis_connector:
     :return:
     """
-    context = pa.default_serialization_context()
     print("[INIT] _get_table", file_info.base_name, datetime.datetime.now())
-    key = file_info.base_name
-    try:
-        table = context.deserialize(redis_connector.get(key))
-        print("[END][REDIS] _get_table", file_info.base_name, datetime.datetime.now())
-    except TypeError:
-        gcs = pa.fs.GcsFileSystem(anonymous=False, retry_time_limit=timedelta(seconds=15))
-        table = pq.read_table(file_info.path,
-                              columns=[DF_COLUMNS.PUBLISHER_ID,
-                                       DF_COLUMNS.PUBLISHER_DOMAIN_ID,
-                                       DF_COLUMNS.ORDER_AMOUNT,
-                                       DF_COLUMNS.TRANSACTION_DATE,
-                                       DF_COLUMNS.PUBLISHER_COMMISSION_AMOUNT,
-                                       DF_COLUMNS.SALES_COUNT_TOTAL],
-                              filters=[(DF_COLUMNS.PUBLISHER_ID, '=', publisher_id),
-                                       (DF_COLUMNS.PUBLISHER_DOMAIN_ID, 'in', publisher_domain_ids)],
-                              filesystem=gcs).to_pandas()
-        redis_connector.set(key, context.serialize(table).to_buffer().to_pybytes())
-        print("[END][NO REDIS] _get_table", file_info.base_name, datetime.datetime.now())
-
+    gcs = pa.fs.GcsFileSystem(anonymous=False, retry_time_limit=timedelta(seconds=15))
+    table = pq.read_table(file_info.path,
+                          columns=[DF_COLUMNS.PUBLISHER_ID,
+                                   DF_COLUMNS.PUBLISHER_DOMAIN_ID,
+                                   DF_COLUMNS.ORDER_AMOUNT,
+                                   DF_COLUMNS.TRANSACTION_DATE,
+                                   DF_COLUMNS.PUBLISHER_COMMISSION_AMOUNT,
+                                   DF_COLUMNS.SALES_COUNT_TOTAL],
+                          filters=[(DF_COLUMNS.PUBLISHER_ID, '=', publisher_id),
+                                   (DF_COLUMNS.PUBLISHER_DOMAIN_ID, 'in', publisher_domain_ids)],
+                          filesystem=gcs).to_pandas()
     return table
 
 
@@ -59,14 +48,12 @@ def get_df(uri, is_file=True):
     :return:
     """
     print("[INIT] get_df", datetime.datetime.now())
-    redis_connector = redis.Redis(host='localhost', port=6379, db=0)
-    redis_connector.flushdb() # TO CLEAN REDIS CACHE.
     gcs = pa.fs.GcsFileSystem(anonymous=False, retry_time_limit=timedelta(seconds=15))
 
     file_list = [pa.fs.FileInfo(uri)] if is_file else gcs.get_file_info(pa.fs.FileSelector(uri, recursive=False))
     frames = []
     for _file in file_list:
-        frames.append(_get_table(_file, redis_connector))
+        frames.append(_get_table(_file))
     print("[END] get_df", datetime.datetime.now())
     return pd.concat(frames)
 
@@ -125,8 +112,8 @@ def apply_query(df):
 
 if __name__ == '__main__':
     print("[INIT] main", datetime.datetime.now())
-    # df = get_df(uri="data-events-test/cheapquery/parquet", is_file=False)
-    df = get_df(uri="data-events-test/cheapquery/parquet/enriched-comms-74968-60-days.parquet", is_file=True)
+    df = get_df(uri="data-events-test/cheapquery/parquet", is_file=False)
+    # df = get_df(uri="data-events-test/cheapquery/parquet/enriched-comms-74968-60-days.parquet", is_file=True)
     print(df.count())
     df_1 = apply_query(df)
     df_1.to_csv("result.csv")
