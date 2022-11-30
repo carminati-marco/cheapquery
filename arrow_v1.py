@@ -6,6 +6,10 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import redis
 
+publisher_domain_ids = [1525074, 1525073, 1597725, 1525077]
+publisher_id = 74968
+from_transaction_date = "2022-11-03"
+to_transaction_date = "2022-11-04"
 
 class DF_COLUMNS:
     PUBLISHER_ID = "publisher_id"
@@ -31,7 +35,16 @@ def _get_table(file_info, redis_connector):
         print("[END][REDIS] _get_table", file_info.base_name, datetime.datetime.now())
     except TypeError:
         gcs = pa.fs.GcsFileSystem(anonymous=False, retry_time_limit=timedelta(seconds=15))
-        table = pq.read_table(file_info.path, filesystem=gcs).to_pandas()
+        table = pq.read_table(file_info.path,
+                              columns=[DF_COLUMNS.PUBLISHER_ID,
+                                       DF_COLUMNS.PUBLISHER_DOMAIN_ID,
+                                       DF_COLUMNS.ORDER_AMOUNT,
+                                       DF_COLUMNS.TRANSACTION_DATE,
+                                       DF_COLUMNS.PUBLISHER_COMMISSION_AMOUNT,
+                                       DF_COLUMNS.SALES_COUNT_TOTAL],
+                              filters=[(DF_COLUMNS.PUBLISHER_ID, '=', publisher_id),
+                                       (DF_COLUMNS.PUBLISHER_DOMAIN_ID, 'in', publisher_domain_ids)],
+                              filesystem=gcs).to_pandas()
         redis_connector.set(key, context.serialize(table).to_buffer().to_pybytes())
         print("[END][NO REDIS] _get_table", file_info.base_name, datetime.datetime.now())
 
@@ -47,7 +60,7 @@ def get_df(uri, is_file=True):
     """
     print("[INIT] get_df", datetime.datetime.now())
     redis_connector = redis.Redis(host='localhost', port=6379, db=0)
-    # redis_connector.flushdb() # TO CLEAN REDIS CACHE.
+    redis_connector.flushdb() # TO CLEAN REDIS CACHE.
     gcs = pa.fs.GcsFileSystem(anonymous=False, retry_time_limit=timedelta(seconds=15))
 
     file_list = [pa.fs.FileInfo(uri)] if is_file else gcs.get_file_info(pa.fs.FileSelector(uri, recursive=False))
@@ -97,10 +110,7 @@ def apply_query(df):
     Function to filter/group/sup the dataframe df
     """
     # TODO: extract the filter as params (to evaluate).
-    publisher_domain_ids = [1525074, 1525073, 1597725, 1525077]
-    publisher_id = 74968
-    from_transaction_date = "2022-11-03"
-    to_transaction_date = "2022-11-04"
+
     df = df[(df[DF_COLUMNS.PUBLISHER_ID] == publisher_id) &
             (df[DF_COLUMNS.PUBLISHER_DOMAIN_ID].isin(publisher_domain_ids)) &
             (df[DF_COLUMNS.TRANSACTION_DATE] >= from_transaction_date) &
