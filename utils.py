@@ -51,24 +51,27 @@ schema = dict(
     order_amount=pa.decimal128(15, 9),
     sales_count_total=pa.int64(),
     __null_dask_index__=pa.int64(),
-    year=pa.int64(),
-    month=pa.int64(),
+    # year=pa.int64(),
+    # month=pa.int64(),
     day=pa.int64()
 )
 
 
 def partition_data(df):
-    df["year"] = pd.to_datetime(df[DF_COLUMNS.TRANSACTION_DATE]).dt.year
-    df["month"] = pd.to_datetime(df[DF_COLUMNS.TRANSACTION_DATE]).dt.month
-    df["day"] = pd.to_datetime(df[DF_COLUMNS.TRANSACTION_DATE]).dt.day
+    # df["year"] = pd.to_datetime(df[DF_COLUMNS.TRANSACTION_DATE]).dt.year
+    # df["month"] = pd.to_datetime(df[DF_COLUMNS.TRANSACTION_DATE]).dt.month
+    # df["day"] = pd.to_datetime(df[DF_COLUMNS.TRANSACTION_DATE]).dt.day
+    df["day"] = pd.to_datetime(df[DF_COLUMNS.TRANSACTION_DATE]).dt.strftime('%Y%m%d').astype(int)
 
     _ddexport = dd.from_pandas(df, npartitions=1)
     _ddexport.to_parquet(
         schema=schema,
-        path="./partition_demo",
+        path="./partition_demo_2",
         engine='pyarrow',
         compression='snappy',
-        partition_on=[DF_COLUMNS.PUBLISHER_ID, "year", "month", "day"]
+        # partition_on=[DF_COLUMNS.PUBLISHER_ID, "year", "month", "day"]
+        partition_on=[DF_COLUMNS.PUBLISHER_ID, "day"]
+
     )
 
 
