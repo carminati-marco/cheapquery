@@ -6,8 +6,13 @@ import pyarrow as pa
 import pyarrow.dataset as da
 import pyarrow.parquet as pq
 
-publisher_domain_ids = [1525074, 1525073, 1597725, 1525077]
-publisher_id = 74968
+# publisher_domain_ids = [1525074, 1525073, 1597725, 1525077]
+# publisher_id = 10026
+
+publisher_domain_ids = [1705172, 1552619, 1701740, 1701743, 1571397, 1599780]
+publisher_id = 1025
+
+dt = datetime.datetime.now()
 from_transaction_date = "2022-11-03"
 to_transaction_date = "2022-11-04"
 
@@ -28,8 +33,14 @@ def _get_table(file_info):
     :return:
     """
     _partitioning = da.partitioning(schema=pa.schema([pa.field("publisher_id", pa.int64()),
-                                                      pa.field("publisher_domain_id", pa.int64())
+                                                      pa.field("year", pa.int64()),
+                                                      pa.field("month", pa.int64()),
+                                                      pa.field("day", pa.int64())
                                                       ]),
+                                    dictionaries={
+                                        "publisher_id": pa.array([publisher_id]),
+                                        "year": pa.array([2022]),
+                                        "month": pa.array([11])},
                                     flavor='hive')
 
     print("[INIT] _get_table", file_info.base_name, datetime.datetime.now())
@@ -42,13 +53,17 @@ def _get_table(file_info):
                                    DF_COLUMNS.TRANSACTION_DATE,
                                    DF_COLUMNS.PUBLISHER_COMMISSION_AMOUNT,
                                    DF_COLUMNS.SALES_COUNT_TOTAL],
-                          filters=[(DF_COLUMNS.PUBLISHER_ID, '=', publisher_id),
-                                   (DF_COLUMNS.PUBLISHER_DOMAIN_ID, 'in', publisher_domain_ids),
-                                   (DF_COLUMNS.TRANSACTION_DATE, '>=', from_transaction_date),
-                                   (DF_COLUMNS.TRANSACTION_DATE, '<', to_transaction_date)
-                                   ],
+                          filters=[
+                              # (DF_COLUMNS.PUBLISHER_ID, '=', publisher_id),
+                              (DF_COLUMNS.PUBLISHER_DOMAIN_ID, 'in', publisher_domain_ids),
+                              (DF_COLUMNS.TRANSACTION_DATE, '>=',
+                               pa.scalar(datetime.datetime.strptime(from_transaction_date, "%Y-%m-%d"))),
+                              (DF_COLUMNS.TRANSACTION_DATE, '<',
+                               pa.scalar(datetime.datetime.strptime(to_transaction_date, "%Y-%m-%d")))
+                          ],
                           filesystem=gcs
                           ).to_pandas()
+    print("[END] _get_table", file_info.base_name, datetime.datetime.now())
     return table
 
 
@@ -76,7 +91,10 @@ def apply_group(df):
 
 if __name__ == '__main__':
     print("[INIT] main", datetime.datetime.now())
-    df = get_df(uri="data-events-test/cheapquery/parquet_partitioning_all")
+
+    # df = get_df(uri="data-events-test/cheapquery/parquet/enriched-comms-74968-90-days.parquet")
+    # df = get_df(uri="data-events-test/cheapquery/partition_demo_client")
+    df = get_df(uri=f"data-events-test/cheapquery/partition_demo_client/publisher_id={publisher_id}/year=2022/month=11/day=11")
     # df = get_df(uri="data-events-test/cheapquery/parquet/enriched-comms-74968-60-days.parquet", is_file=True)
     print(df.count())
     df_1 = apply_group(df)
