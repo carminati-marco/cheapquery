@@ -117,10 +117,11 @@ def apply_group(df, agg_cols=AGG_COLS):
     Function to group/sum the dataframe df
     """
     df[DF_COLUMNS.TRANSACTION_DATE] = pd.to_datetime(df[DF_COLUMNS.TRANSACTION_DATE])
-    return df.groupby([df[DF_COLUMNS.TRANSACTION_DATE].dt.date])[agg_cols].apply(lambda x: x.sum())
+    return df.groupby([df[DF_COLUMNS.TRANSACTION_DATE].dt.date])[agg_cols].apply(lambda x: x.sum()).reset_index()
 
 
 def search(publisher_id, from_transaction_date, to_transaction_date, publisher_domain_ids, app_cache={}):
+    print("[INIT] main", datetime.datetime.now())
     df = get_table(publisher_id=publisher_id,
                    from_transaction_date=from_transaction_date,
                    to_transaction_date=to_transaction_date,
