@@ -1,7 +1,7 @@
 import datetime
 import sys
 from datetime import timedelta
-from cachetools import cached, LRUCache
+from cachetools import cached, LFUCache
 import psutil
 import pandas as pd
 import pyarrow as pa
@@ -29,7 +29,7 @@ AGG_COLS = [
 
 CACHE_LIMIT = psutil.virtual_memory().total / 2
     
-class APP_CACHE(LRUCache):
+class APP_CACHE(LFUCache):
     def __init__(self):
         print(f"Initialised cache with {CACHE_LIMIT / 1024000}MB limit")
         super().__init__(CACHE_LIMIT)
@@ -45,7 +45,6 @@ class APP_CACHE(LRUCache):
             to_date=to_date,
             data=data
         )
-        print(key, from_date, to_date)
         print(f"Storing data cache: {sys.getsizeof(data) / 1024000} MB")
         return super().__setitem__(key, obj)
     
