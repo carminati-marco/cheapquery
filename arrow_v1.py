@@ -60,6 +60,19 @@ def apply_group(df):
                                                                  DF_COLUMNS.SALES_COUNT_TOTAL].sum()
 
 
+def search(publisher_id, from_transaction_date, to_transaction_date, publisher_domain_ids):
+    df = get_table(publisher_id=publisher_id,
+                   from_transaction_date=from_transaction_date,
+                   to_transaction_date=to_transaction_date,
+                   publisher_domain_ids=publisher_domain_ids)
+    print(df.count())
+    grouped_df = apply_group(df)
+    # grouped_df.to_csv("result.csv")
+    # print(grouped_df.count())
+    print("[END] main", datetime.datetime.now())
+    return grouped_df
+
+
 if __name__ == '__main__':
     print("[INIT] main", datetime.datetime.now())
 
@@ -68,12 +81,4 @@ if __name__ == '__main__':
     from_transaction_date = 20211203
     to_transaction_date = 20221204
 
-    df = get_table(publisher_id=publisher_id,
-                   from_transaction_date=from_transaction_date,
-                   to_transaction_date=to_transaction_date,
-                   publisher_domain_ids=publisher_domain_ids)
-    print(df.count())
-    df_1 = apply_group(df)
-    df_1.to_csv("result.csv")
-    print(df_1.count())
-    print("[END] main", datetime.datetime.now())
+    search(publisher_id, from_transaction_date, to_transaction_date, publisher_domain_ids)
