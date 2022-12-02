@@ -2,3 +2,4 @@ pandas==1.5.2
 pyarrow==10.0.1
 dask==2022.11.1
 Flask==2.2.2
+psutil==5.9.4
