@@ -5,7 +5,7 @@ import pandas as pd
 import pyarrow as pa
 from dask import dataframe as dd
 
-from arrow_v1 import DF_COLUMNS, get_df
+from arrow_v1 import DF_COLUMNS, get_table
 
 schema = dict(
     id=pa.binary(),
@@ -51,27 +51,20 @@ schema = dict(
     order_amount=pa.decimal128(15, 9),
     sales_count_total=pa.int64(),
     __null_dask_index__=pa.int64(),
-    # year=pa.int64(),
-    # month=pa.int64(),
     day=pa.int64()
 )
 
 
 def partition_data(df):
-    # df["year"] = pd.to_datetime(df[DF_COLUMNS.TRANSACTION_DATE]).dt.year
-    # df["month"] = pd.to_datetime(df[DF_COLUMNS.TRANSACTION_DATE]).dt.month
-    # df["day"] = pd.to_datetime(df[DF_COLUMNS.TRANSACTION_DATE]).dt.day
-    df["day"] = pd.to_datetime(df[DF_COLUMNS.TRANSACTION_DATE]).dt.strftime('%Y%m%d').astype(int)
+    df[DF_COLUMNS.DAY] = pd.to_datetime(df[DF_COLUMNS.TRANSACTION_DATE]).dt.strftime('%Y%m%d').astype(int)
 
     _ddexport = dd.from_pandas(df, npartitions=1)
     _ddexport.to_parquet(
         schema=schema,
-        path="./partition_demo_2",
+        path="./partition_demo_publisher",
         engine='pyarrow',
         compression='snappy',
-        # partition_on=[DF_COLUMNS.PUBLISHER_ID, "year", "month", "day"]
-        partition_on=[DF_COLUMNS.PUBLISHER_ID, "day"]
-
+        partition_on=[DF_COLUMNS.PUBLISHER_ID]
     )
 
 
@@ -93,6 +86,7 @@ def convert_files_to_parquet(uri="data-events-test/cheapquery/csv"):
 
 
 if __name__ == '__main__':
-    df = get_df(
-        uri="data-events-test/cheapquery/parquet/full-90-day-dataset/gzip/enriched-comms-multi-90-days-gzip000000000000.parquet")
+    # REMIND: REMOVE THE FILTER/COLUMNS TO EXPORT IN _get_table F(X)
+    # + USE uri = "data-events-test/cheapquery/parquet/full-90-day-dataset/gzip/"
+    df = get_table()
     partition_data(df)
