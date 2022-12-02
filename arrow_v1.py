@@ -6,17 +6,6 @@ import pyarrow as pa
 import pyarrow.dataset as da
 import pyarrow.parquet as pq
 
-# publisher_domain_ids = [1525074, 1525073, 1597725, 1525077]
-# publisher_id = 10026
-
-publisher_domain_ids = [1705172, 1552619, 1701740, 1701743, 1571397, 1599780]
-publisher_id = 1025
-
-dt = datetime.datetime.now()
-from_transaction_date = 20221103
-to_transaction_date = 20221104
-
-
 class DF_COLUMNS:
     PUBLISHER_ID = "publisher_id"
     PUBLISHER_DOMAIN_ID = "publisher_domain_id"
@@ -24,24 +13,18 @@ class DF_COLUMNS:
     ORDER_AMOUNT = "order_amount"
     PUBLISHER_COMMISSION_AMOUNT = "publisher_commission_amount"
     SALES_COUNT_TOTAL = "sales_count_total"
+    DAY = "day"
 
 
-def _get_table(file_info):
+def get_table(publisher_id, publisher_domain_ids, from_transaction_date, to_transaction_date):
     """
     Get the data
     :param file_info:
     :return:
     """
-    _partitioning = da.partitioning(schema=pa.schema([pa.field("publisher_id", pa.int64()),
-                                                      # pa.field("year", pa.int64()),
-                                                      # pa.field("month", pa.int64()),
-                                                      pa.field("day", pa.int64())
-                                                      ]),
-                                    dictionaries={
-                                        "publisher_id": pa.array([publisher_id]),
-                                        # "year": pa.array([2022]),
-                                        # "month": pa.array([11])
-                                        },
+    file_info = pa.fs.FileInfo(f"data-events-test/cheapquery/partition_demo_publisher/publisher_id={publisher_id}")
+
+    _partitioning = da.partitioning(schema=pa.schema([pa.field(DF_COLUMNS.PUBLISHER_ID, pa.int64())]),
                                     flavor='hive')
 
     print("[INIT] _get_table", file_info.base_name, datetime.datetime.now())
@@ -53,29 +36,18 @@ def _get_table(file_info):
                                    DF_COLUMNS.ORDER_AMOUNT,
                                    DF_COLUMNS.TRANSACTION_DATE,
                                    DF_COLUMNS.PUBLISHER_COMMISSION_AMOUNT,
-                                   DF_COLUMNS.SALES_COUNT_TOTAL],
+                                   DF_COLUMNS.SALES_COUNT_TOTAL,
+                                   DF_COLUMNS.DAY],
                           filters=[
-                              # (DF_COLUMNS.PUBLISHER_ID, '=', publisher_id),
                               (DF_COLUMNS.PUBLISHER_DOMAIN_ID, 'in', publisher_domain_ids),
-                              ("day", '>=', from_transaction_date),
-                              ("day", '<', to_transaction_date)
+                              (DF_COLUMNS.DAY, '>=', from_transaction_date),
+                              (DF_COLUMNS.DAY, '<', to_transaction_date)
                           ],
                           filesystem=gcs
                           ).to_pandas()
     print("[END] _get_table", file_info.base_name, datetime.datetime.now())
     return table
 
-
-def get_df(uri):
-    """
-    Obtains the df, reading the uri.
-    :param uri:
-    :return:
-    """
-    print("[INIT] get_df", datetime.datetime.now())
-    df = _get_table(pa.fs.FileInfo(uri))
-    print("[END] get_df", datetime.datetime.now())
-    return df
 
 
 def apply_group(df):
@@ -91,10 +63,15 @@ def apply_group(df):
 if __name__ == '__main__':
     print("[INIT] main", datetime.datetime.now())
 
-    # df = get_df(uri="data-events-test/cheapquery/parquet/enriched-comms-74968-90-days.parquet")
-    # df = get_df(uri="data-events-test/cheapquery/partition_demo_client")
-    df = get_df(uri=f"data-events-test/cheapquery/partition_demo_2/publisher_id={publisher_id}")
-    # df = get_df(uri="data-events-test/cheapquery/parquet/enriched-comms-74968-60-days.parquet", is_file=True)
+    publisher_domain_ids = [1705172, 1552619, 1701740, 1701743, 1571397, 1599780]
+    publisher_id = 74968
+    from_transaction_date = 20211203
+    to_transaction_date = 20221204
+
+    df = get_table(publisher_id=publisher_id,
+                   from_transaction_date=from_transaction_date,
+                   to_transaction_date=to_transaction_date,
+                   publisher_domain_ids=publisher_domain_ids)
     print(df.count())
     df_1 = apply_group(df)
     df_1.to_csv("result.csv")
