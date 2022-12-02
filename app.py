@@ -1,14 +1,17 @@
 from flask import Flask
 app = Flask(__name__)
 from flask import request
-from arrow_v1 import search as arrow_search
+from arrow_v1 import search as arrow_search, APP_CACHE
 
-@app.route('/search/', methods=['POST'])
+
+app_cache = APP_CACHE()
+
+@app.route('/search/', methods=['GET'])
 def search():
-    data = request.get_json()
-    r = arrow_search(data["publisher_id"], data["from_transaction_date"],
-                     data["to_transaction_date"], data["publisher_domain_ids"])
-    return r.to_json()
+    data = request.args
+    r = arrow_search(data["publisher_id"], data["start_date"],
+                     data["end_date"], data.get("publisher_domain_ids"), app_cache=app_cache)
+    return {"commissions": r.to_dict(orient='records')}
 
 @app.route('/alive/', methods=['GET', 'POST'])
 def alive():
