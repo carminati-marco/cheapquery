@@ -27,12 +27,12 @@ AGG_COLS = [
 ]
 
 
-CACHE_LIMIT = psutil.virtual_memory().total / 2
     
 class APP_CACHE(LFUCache):
     def __init__(self):
-        print(f"Initialised cache with {CACHE_LIMIT / 1024000}MB limit")
-        super().__init__(CACHE_LIMIT)
+        self.CACHE_LIMIT = psutil.virtual_memory().total / 4
+        print(f"Initialised cache with {self.CACHE_LIMIT / 1024000}MB limit")
+        super().__init__(self.CACHE_LIMIT)
 
     
     def __getitem__(self, key):
@@ -65,7 +65,7 @@ def get_table(publisher_id, publisher_domain_ids, from_transaction_date, to_tran
     cache_entry = app_cache[publisher_id]
     if cache_entry is not None and from_transaction_date >= cache_entry['from_date'] and to_transaction_date <= cache_entry['to_date']:
         print("Using cached data")
-        return apply_filters(cache_entry['data'], from_transaction_date, to_transaction_date, publisher_domain_ids)
+        return apply_filters(cache_entry['data'].to_pandas(), from_transaction_date, to_transaction_date, publisher_domain_ids)
     
 
     file_info = pa.fs.FileInfo(f"data-events-test/cheapquery/partition_demo_publisher/publisher_id={publisher_id}")
@@ -85,11 +85,11 @@ def get_table(publisher_id, publisher_domain_ids, from_transaction_date, to_tran
                           filters=[(DF_COLUMNS.DAY, '>=', convert_date(from_transaction_date)),
                                     (DF_COLUMNS.DAY, '<', convert_date(to_transaction_date))],
                           filesystem=gcs
-                        ).to_pandas()
+                        )
     print("[END] Fetching data from GCS", file_info.base_name, datetime.datetime.now())
 
     app_cache[publisher_id] = (from_transaction_date, to_transaction_date, table)
-    return apply_filters(table, publisher_domain_ids=publisher_domain_ids)
+    return apply_filters(table.to_pandas(), publisher_domain_ids=publisher_domain_ids)
 
 
 def apply_filters(df, from_date=None, to_date=None, publisher_domain_ids=None):
